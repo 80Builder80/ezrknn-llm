@@ -23,8 +23,8 @@
 #include <csignal>
 #include <vector>
 
-#define PROMPT_TEXT_PREFIX "<|im_start|>system You are a helpful assistant. <|im_end|> <|im_start|>user"
-#define PROMPT_TEXT_POSTFIX "<|im_end|><|im_start|>assistant"
+#define PROMPT_TEXT_PREFIX "<|start|>system You are a helpful assistant. <|end|> <|start|><|user|>"
+#define PROMPT_TEXT_POSTFIX "<|end|><|start|><|assistant|>"
 
 using namespace std;
 
@@ -72,7 +72,7 @@ int main(int argc, char **argv)
 
     RKLLMParam param = rkllm_createDefaultParam();
     param.model_path = rkllm_model.c_str();
-    param.num_npu_core = 2;
+    param.num_npu_core = 3;
     param.top_k = 1;
     param.max_new_tokens = 256;
     param.max_context_len = 512;
