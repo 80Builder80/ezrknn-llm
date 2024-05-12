@@ -23,7 +23,7 @@
 #include <csignal>
 #include <vector>
 
-#define PROMPT_TEXT_PREFIX "<|start|>system You are a helpful assistant. <|end|> <|start|><|user|>"
+#define PROMPT_TEXT_PREFIX "<|start|><|system|> You are a helpful assistant. <|end|> <|start|><|user|>"
 #define PROMPT_TEXT_POSTFIX "<|end|><|start|><|assistant|>"
 
 using namespace std;
