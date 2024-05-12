@@ -1,61 +1,62 @@
 #!/bin/bash
 
 #*****************************************************************************************#
-# 该脚本为 RKLLM-Server-Gradio 服务的一键设置脚本
-# 用户可以运行该脚本实现Linux板端的 RKLLM-Server-Gradio 服务的自动化部署。
-# 使用说明: ./build_rkllm_server_gradio.sh [目标平台:rk3588/rk3576] [RKLLM-Server工作路径] [已转换的rkllm模型在板端的绝对路径]
+# This script is a one-click setup script for the RKLLM-Server-Gradio service
+# Users can run this script to automatically deploy the RKLLM-Server-Gradio service on a Linux board.
+# Usage: ./build_rkllm_server_gradio.sh [target platform: rk3588/rk3576] [RKLLM-Server working path] [absolute path of the converted rkllm model on the board]
 # example: ./build_rkllm_server_gradio.sh rk3588 /user/data/rkllm_server /user/data/rkllm_server/model.rkllm
 #*****************************************************************************************#
 
-#################### 检查板端是否已经安装了 pip/gradio 库 ####################
-# 1.准备板端的gradio环境
+#################### Check if pip/gradio libraries are already installed on the board ####################
+# 1. Prepare the gradio environment on the board
 adb shell << EOF
 
-# 检查是否安装了 pip3
+# Check if pip3 is installed
 if ! command -v pip3 &> /dev/null; then
-    echo "-------- pip3 未安装，将进行安装... --------"
-    # 安装 pip3
+    echo "-------- pip3 not installed, installing now... --------"
+    # Install pip3
     sudo apt update
     sudo apt install python3-pip -y
 else
-    echo "-------- pip3 已经安装 --------"
+    echo "-------- pip3 is already installed --------"
 fi
 
-# 检查是否安装了 gradio
+# Check if gradio is installed
 if ! python3 -c "import gradio" &> /dev/null; then
-    echo "-------- Gradio 未安装，将进行安装... --------"
-    # 安装 Gradio
+    echo "-------- Gradio not installed, installing now... --------"
+    # Install Gradio
     pip3 install gradio>=4.24.0 -i https://pypi.tuna.tsinghua.edu.cn/simple/
 else
-    echo "-------- Gradio 已经安装 --------"
+    echo "-------- Gradio is already installed --------"
 fi
 
 exit
 
 EOF
 
-#################### 推送 server 运行的相关文件进入板端 ####################
-# 2.检查需要推送进板端的路径是否存在
+#################### Push server-related files to the board ####################
+# 2. Check if the path to push into the board exists
 adb shell ls $2 > /dev/null 2>&1
 if [ $? -ne 0 ]; then
-    # 如果路径不存在，则创建路径
+    # If the path does not exist, create the path
     adb shell mkdir -p $2
-    echo "-------- rkllm_server 工作目录不存在，已创建目录 --------"
+    echo "-------- rkllm_server working directory does not exist, directory created --------"
 else
-    echo "-------- rkllm_server 工作目录已存在 --------"
+    echo "-------- rkllm_server working directory already exists --------"
 fi
 
-# 3.更新 ./rkllm_server/lib 中的 librkllmrt.so 文件
+# 3. Update the librkllmrt.so file in ./rkllm_server/lib
 cp ../../runtime/Linux/librkllm_api/aarch64/librkllmrt.so  ./rkllm_server/lib/
 
-# 4.推送文件到 Linux 板端
+# 4. Push files to the Linux board
 adb push ./rkllm_server $2
 
-#################### 进入板端并启动 server 服务 ####################
-# 5.进入板端启动 server 服务
+#################### Enter the board and start the server service ####################
+# 5. Enter the board to start the server service
 adb shell << EOF
 
 cd $2/rkllm_server/
-python3 gradio_server.py --target_platform $1 --rkllm_model_path $3
+python3 gradio_server.py --target platform $1 --rkllm_model_path $3
 
 EOF
+
