@@ -11,21 +11,21 @@ from flask import Flask, request, jsonify, Response
 
 app = Flask(__name__)
 
-# 创建一个锁，用于控制多人访问Server
+# Create a lock to control server access when multiple users are connected
 lock = threading.Lock()
 
-# 创建一个全局变量，用于标识服务器当前是否处于阻塞状态
+# Create a global variable to indicate whether the server is currently in a blocking state
 is_blocking = False
 
-# 设置动态库路径
+# Set the dynamic library path
 rkllm_lib = ctypes.CDLL('lib/librkllmrt.so')
 
-# 定义全局变量，用于保存回调函数的输出，便于在gradio界面中输出
+# Define global variables to save callback function outputs, useful for displaying in the Gradio interface
 global_text = []
 global_state = -1
-split_byte_data = bytes(b"") # 用于保存分割的字节数据
+split_byte_data = bytes(b"")  # Used to store split byte data
 
-# 定义动态库中的结构体
+# Define a structure in the dynamic library
 class Token(ctypes.Structure):
     _fields_ = [
         ("logprob", ctypes.c_float),
@@ -39,14 +39,13 @@ class RKLLMResult(ctypes.Structure):
         ("num", ctypes.c_int32)
     ]
 
-
-# 定义回调函数
+# Define a callback function
 def callback(result, userdata, state):
     global global_text, global_state, split_byte_data
     if state == 0:
-        # 保存输出的token文本及RKLLM运行状态
+        # Save the token text output and RKLLM running state
         global_state = state
-        # 需要监控当前的字节数据是否完整，不完整则进行记录，后续进行解析
+        # Monitor if the current byte data is complete; if not, record it for later parsing
         try:
             global_text.append((split_byte_data + result.contents.text).decode('utf-8'))
             print((split_byte_data + result.contents.text).decode('utf-8'), end='')
@@ -55,18 +54,18 @@ def callback(result, userdata, state):
             split_byte_data += result.contents.text
         sys.stdout.flush()
     elif state == 1:
-        # 保存RKLLM运行状态
+        # Save the RKLLM running state
         global_state = state
         print("\n")
         sys.stdout.flush()
     else:
         print("run error")
 
-# Python端与C++端的回调函数连接
+# Connect the Python-side to the C++-side callback function
 callback_type = ctypes.CFUNCTYPE(None, ctypes.POINTER(RKLLMResult), ctypes.c_void_p, ctypes.c_int)
 c_callback = callback_type(callback)
 
-# 定义动态库中的结构体
+# Define a structure in the dynamic library
 class RKNNllmParam(ctypes.Structure):
     _fields_ = [
         ("model_path", ctypes.c_char_p),
@@ -87,16 +86,16 @@ class RKNNllmParam(ctypes.Structure):
         ("use_gpu", ctypes.c_bool)
     ]
 
-# 定义RKLLM_Handle_t和userdata
+# Define RKLLM_Handle_t and userdata
 RKLLM_Handle_t = ctypes.c_void_p
 userdata = ctypes.c_void_p(None)
 
-# 设置提示文本
-PROMPT_TEXT_PREFIX = "<|im_start|>system You are a helpful assistant. <|im_end|> <|im_start|>user"
-PROMPT_TEXT_POSTFIX = "<|im_end|><|im_start|>assistant"
+# Set prompt text
+PROMPT_TEXT_PREFIX = "system You are a helpful assistant.  user"
+PROMPT_TEXT_POSTFIX = "assistant"
 
-# 定义Python端的RKLLM类，其中包括了对动态库中RKLLM模型的初始化、推理及释放操作
-class RKLLM(object):
+# Define the RKLLM class on the Python side, including initialization, inference, and release operations for the RKLLM model in the dynamic library
+class RKLLM:
     def __init__(self, model_path, target_platform):
         rknnllm_param = RKNNllmParam()
         rknnllm_param.model_path = bytes(model_path, 'utf-8')
@@ -143,62 +142,62 @@ class RKLLM(object):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--target_platform', help='目标平台: 如rk3588/rk3576;')
-    parser.add_argument('--rkllm_model_path', help='Linux板端上已转换好的rkllm模型的绝对路径')
+    parser.add_argument('--target_platform', help='Target platform: e.g., rk3588/rk3576;')
+    parser.add_argument('--rkllm_model_path', help='Absolute path of the converted rkllm model on the Linux board')
     args = parser.parse_args()
 
     if not (args.target_platform in ["rk3588", "rk3576"]):
-        print("====== Error: 请指定正确的目标平台: rk3588/rk3576 ======")
+        print("====== Error: Please specify the correct target platform: rk3588/rk3576 ======")
         sys.stdout.flush()
         exit()
 
     if not os.path.exists(args.rkllm_model_path):
-        print("====== Error: 请给出准确的rkllm模型路径，需注意是板端的绝对路径 ======")
+        print("====== Error: Please provide the accurate path to the rkllm model, ensuring it is the absolute path on the board ======")
         sys.stdout.flush()
         exit()
 
-    # 定频设置
+    # Frequency setting
     command = "sudo bash fix_freq_{}.sh".format(args.target_platform)
     subprocess.run(command, shell=True)
 
-    # 设置文件描述符限制
+    # Set file descriptor limit
     resource.setrlimit(resource.RLIMIT_NOFILE, (102400, 102400))
 
-    # 初始化RKLLM模型
+    # Initialize the RKLLM model
     print("=========init....===========")
     sys.stdout.flush()
     target_platform = args.target_platform
     model_path = args.rkllm_model_path
     rkllm_model = RKLLM(model_path, target_platform)
-    print("RKLLM初始化成功！")
+    print("RKLLM initialization successful!")
     print("==============================")
     sys.stdout.flush()
 
-    # 创建一个函数用于接受用户使用 request 发送的数据
+    # Create a function to receive user data sent via request
     @app.route('/rkllm_chat', methods=['POST'])
     def receive_message():
-        # 链接全局变量，获取回调函数的输出信息
+        # Link global variables, get output information from the callback function
         global global_text, global_state
         global is_blocking
 
-        # 如果服务器正在阻塞状态，则返回特定响应
+        # If the server is in a blocking state, return a specific response
         if is_blocking or global_state==0:
             return jsonify({'status': 'error', 'message': 'RKLLM_Server is busy! Maybe you can try again later.'}), 503
         
-        # 加锁
+        # Acquire the lock
         lock.acquire()
         try:
-            # 设置服务器为阻塞状态
+            # Set the server to a blocking state
             is_blocking = True
 
-            # 获取 POST 请求中的 JSON 数据
+            # Get JSON data from the POST request
             data = request.json
             if data and 'messages' in data:
-                # 重置全局变量
+                # Reset global variables
                 global_text = []
                 global_state = -1
 
-                # 定义返回的结构体
+                # Define the return structure
                 rkllm_responses = {
                     "id": "rkllm_chat",
                     "object": "rkllm_chat",
@@ -212,18 +211,18 @@ if __name__ == "__main__":
                 }
 
                 if not "stream" in data.keys() or data["stream"] == False:
-                    # 在这里处理收到的数据
+                    # Handle received data here
                     messages = data['messages']
                     print("Received messages:", messages)
                     for index, message in enumerate(messages):
                         input_prompt = message['content']
                         rkllm_output = ""
                         
-                        # 创建模型推理的线程
+                        # Create a thread for model inference
                         model_thread = threading.Thread(target=rkllm_model.run, args=(input_prompt,))
                         model_thread.start()
 
-                        # 等待模型运行完成，定时检查模型的推理线程
+                        # Wait for the model to complete, periodically check the inference thread
                         model_thread_finished = False
                         while not model_thread_finished:
                             while len(global_text) > 0:
@@ -245,7 +244,7 @@ if __name__ == "__main__":
                         )
                     return jsonify(rkllm_responses), 200
                 else:
-                    # 在这里处理收到的数据
+                    # Handle received data here
                     messages = data['messages']
                     print("Received messages:", messages)
                     for index, message in enumerate(messages):
@@ -253,11 +252,11 @@ if __name__ == "__main__":
                         rkllm_output = ""
                         
                         def generate():
-                            # 创建模型推理的线程
+                            # Create a thread for model inference
                             model_thread = threading.Thread(target=rkllm_model.run, args=(input_prompt,))
                             model_thread.start()
 
-                            # 等待模型运行完成，定时检查模型的推理线程
+                            # Wait for the model to complete, periodically check the inference thread
                             model_thread_finished = False
                             while not model_thread_finished:
                                 while len(global_text) > 0:
@@ -282,16 +281,17 @@ if __name__ == "__main__":
             else:
                 return jsonify({'status': 'error', 'message': 'Invalid JSON data!'}), 400
         finally:
-            # 释放锁
+            # Release the lock
             lock.release()
-            # 将服务器状态设置为非阻塞
+            # Set the server state to non-blocking
             is_blocking = False
         
-    # 启动 Flask 应用程序
+    # Start the Flask application
     # app.run(host='0.0.0.0', port=8080)
     app.run(host='0.0.0.0', port=8080, threaded=True, debug=False)
 
     print("====================")
-    print("RKLLM模型推理结束, 释放RKLLM模型资源...")
+    print("RKLLM model inference complete, releasing RKLLM model resources...")
     rkllm_model.release()
     print("====================")
+
