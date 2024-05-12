@@ -14,6 +14,7 @@ pip install /ezrknn-llm/rkllm-toolkit/packages/rkllm_toolkit-1.0.1-cp38-cp38-lin
 # Clone some compatible LLMs
 cd /ezrknn-llm/rkllm-toolkit/examples/huggingface
 git clone https://huggingface.co/microsoft/Phi-3-mini-4k-instruct
+git clone https://huggingface.co/NousResearch/Meta-Llama-3-8B-Instruct
 
 # Done here to avoid cloning full repository for the Docker image
 apt install -y git-lfs
