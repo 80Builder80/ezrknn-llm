@@ -1,12 +1,12 @@
 from rkllm.api import RKLLM
 
 '''
-https://huggingface.co/Qwen/Qwen-1_8B-Chat
-Download the Qwen model from the above website.
+https://huggingface.co/microsoft/Phi-3-mini-4k-instruct
+Download the Phi-3 model from the above website.
 '''
 
 # Default option. Works only if in the same directory
-modelpath = 'Qwen-1_8B-Chat'
+modelpath = 'Phi-3-mini-4k-instruct'
 llm = RKLLM()
 
 # Load model
@@ -22,7 +22,7 @@ if ret != 0:
     exit(ret)
 
 # Export rknn model
-ret = llm.export_rkllm("./qwen.rkllm")
+ret = llm.export_rkllm("./Phi-3-mini-4k-instruct.rkllm")
 if ret != 0:
     print('Export model failed!')
     exit(ret)
