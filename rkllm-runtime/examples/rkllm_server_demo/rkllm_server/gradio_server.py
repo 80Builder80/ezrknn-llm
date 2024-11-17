@@ -414,6 +414,58 @@ def get_RKLLM_output(history):
         model_thread.join(timeout=0.005)
         model_thread_finished = not model_thread.is_alive()
 
+import os
+import threading
+import time
+import gradio as gr
+
+# Define the path for model storage
+MODEL_PATH = "/models"
+
+def get_available_models():
+    """Scan the /models directory for available models."""
+    if not os.path.exists(MODEL_PATH) or not os.path.isdir(MODEL_PATH):
+        return ["No models available"]
+    models = [f for f in os.listdir(MODEL_PATH) if os.path.isdir(os.path.join(MODEL_PATH, f))]
+    return models if models else ["No models available"]
+
+# Record the user's input prompt
+def get_user_input(user_message, history, selected_model):
+    if not selected_model or selected_model == "No models available":
+        # If no model is selected, prompt the user to choose a model
+        history = history + [["Please select a model from the dropdown.", None]]
+        return "", history
+    
+    # Add the user's input and selected model to the history
+    history = history + [[f"Model: {selected_model}\nUser: {user_message}", None]]
+    return "", history
+
+# Retrieve the output from the RKLLM model and print it in a streaming manner
+def get_RKLLM_output(history):
+    # Link global variables to retrieve the output information from the callback function
+    global global_text, global_state
+    global_text = []
+    global_state = -1
+
+    # Create a thread for model inference
+    model_thread = threading.Thread(target=rkllm_model.run, args=(history[-1][0],))
+    model_thread.start()
+
+    # history[-1][1] represents the current dialogue
+    history[-1][1] = ""
+    
+    # Wait for the model to finish running and periodically check the inference thread of the model
+    model_thread_finished = False
+    while not model_thread_finished:
+        while len(global_text) > 0:
+            history[-1][1] += global_text.pop(0)
+            time.sleep(0.005)
+            # Gradio automatically pushes the result returned by the yield statement when calling the then method
+            yield history
+
+        model_thread.join(timeout=0.005)
+        model_thread_finished = not model_thread.is_alive()
+
 # Create a Gradio interface
 with gr.Blocks(title="Chat with RKLLM") as chatRKLLM:
     gr.Markdown("<div align='center'><font size='70'> Chat with RKLLM </font></div>")
@@ -468,3 +520,4 @@ try:
     print("====================")
 except Exception as e:
     print(f"Error releasing RKLLM model resources: {e}")
+
