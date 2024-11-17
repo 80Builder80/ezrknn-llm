@@ -1,0 +1,14 @@
+{
+    "models": {
+        "model_a": {
+            "system_prompt": "You are a helpful assistant specialized in education.",
+            "max_context_len": 1024,
+            "max_new_tokens": 256
+        },
+        "model_b": {
+            "system_prompt": "You are a technical assistant focused on programming.",
+            "max_context_len": 512,
+            "max_new_tokens": 128
+        }
+    }
+}
