@@ -4,6 +4,7 @@ import json
 import threading
 import time
 import gradio as gr
+from collections import deque  # For buffer memory
 
 # Paths
 MODEL_PATH = "/models"
@@ -13,6 +14,8 @@ CONFIG_PATH = "/rkllm-runtime/examples/rkllm_api_demo/src/models_config.json"
 global_text = []
 global_state = -1
 split_byte_data = bytes(b"")
+BUFFER_MEMORY_SIZE = 10  # Max exchanges in buffer memory
+memory_buffer = deque(maxlen=BUFFER_MEMORY_SIZE)  # Session-specific memory
 
 # Load model configurations from JSON
 def load_model_config(model_name):
@@ -39,6 +42,15 @@ def load_model_config(model_name):
 def interpolate_prompt(template_str, system_prompt):
     """Replace {{system_prompt}} placeholder in the prompt template."""
     return template_str.replace("{{system_prompt}}", system_prompt)
+
+# Construct prompt with memory
+def construct_prompt_with_memory(prefix, memory, user_input, postfix):
+    """Add memory and current user input to the prompt."""
+    full_prompt = prefix
+    for mem in memory:
+        full_prompt += mem + postfix
+    full_prompt += user_input + postfix
+    return full_prompt
 
 # Get available models in the /models directory
 def get_available_models():
@@ -102,10 +114,12 @@ def get_user_input(user_message, history, selected_model):
     prompt_prefix = interpolate_prompt(config.get("PROMPT_TEXT_PREFIX", ""), config.get("system_prompt", ""))
     prompt_postfix = config.get("PROMPT_TEXT_POSTFIX", "")
     
-    # Construct the full prompt
-    prompt = f"{prompt_prefix}{user_message}{prompt_postfix}"
+    # Construct the full prompt with memory
+    full_prompt = construct_prompt_with_memory(prompt_prefix, memory_buffer, user_message, prompt_postfix)
+    
+    # Update history
     history = history + [[f"Model: {selected_model}\nUser: {user_message}", None]]
-    return prompt, history
+    return full_prompt, history
 
 # Stream model output
 def get_RKLLM_output(history, prompt, selected_model):
@@ -160,5 +174,6 @@ try:
     print("====================")
 except Exception as e:
     print(f"Error releasing RKLLM model resources: {e}")
+
 
 
