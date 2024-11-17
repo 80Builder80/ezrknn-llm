@@ -19,6 +19,7 @@
 #include <fstream>
 #include <csignal>
 #include <vector>
+#include <deque> // For buffer memory
 #include "rkllm.h"
 #include "json.hpp" // nlohmann/json header
 
@@ -26,6 +27,10 @@ using namespace std;
 using json = nlohmann::json;
 
 LLMHandle llmHandle = nullptr;
+
+// Buffer memory parameters
+const size_t MAX_MEMORY_SIZE = 5; // Keep the last 5 exchanges
+deque<string> memory_buffer;      // Buffer to store conversation history
 
 // Exit handler
 void exit_handler(int signal)
@@ -107,6 +112,23 @@ string interpolate_prompt(const string &prefix, const string &system_prompt)
     return prefix;
 }
 
+// Function to construct prompt with memory
+string construct_prompt_with_memory(const string &prefix, const deque<string> &memory, const string &input, const string &postfix)
+{
+    string full_prompt = prefix;
+
+    // Add memory to the prompt
+    for (const auto &mem : memory)
+    {
+        full_prompt += mem + postfix;
+    }
+
+    // Add the user's current input
+    full_prompt += input + postfix;
+
+    return full_prompt;
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 3)
@@ -168,7 +190,6 @@ int main(int argc, char **argv)
     cout << "\n*******************************************************************************\n" << endl;
 
     // Main loop
-    string text;
     while (true)
     {
         string input_str;
@@ -181,13 +202,25 @@ int main(int argc, char **argv)
             break;
         }
 
-        string query = interpolated_prefix + input_str + prompt_postfix;
+        // Construct query with memory
+        string query = construct_prompt_with_memory(interpolated_prefix, memory_buffer, input_str, prompt_postfix);
 
         printf("LLM: ");
         rkllm_run(llmHandle, query.c_str(), nullptr);
+
+        // Update memory buffer
+        memory_buffer.push_back(input_str);
+        if (memory_buffer.size() > MAX_MEMORY_SIZE)
+        {
+            memory_buffer.pop_front();
+        }
     }
 
     rkllm_destroy(llmHandle);
+
+    return 0;
+}
+
 
     return 0;
 }
