@@ -1,9 +1,9 @@
 {
     "families": {
         "llama3": {
-            "PROMPT_TEXT_PREFIX": "<|im_start|>system ",
-            "PROMPT_TEXT_POSTFIX": "<|im_end|><|im_start|>user",
-            "system_prompt": "You are a helpful assistant for all purposes.",
+            "PROMPT_TEXT_PREFIX": "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\nCutting Knowledge Date: December 2023\nToday Date: 11 Nov 2024\n\nYou are Llama 3, an artificial intelligence model trained by Meta. You are a helpful assistant.<|eot_id|><|start_header_id|>user<|end_header_id|>\n\n",
+            "PROMPT_TEXT_POSTFIX": "<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n",
+            "system_prompt": "You are Llama 3, a helpful assistant for all purposes.",
             "max_context_len": 1024,
             "max_new_tokens": 256,
             "temperature": 0.7
@@ -18,10 +18,14 @@
         }
     },
     "models": {
-        "custom_llama3_edu": {
+        "Llama-3.1-8B-Instruct-rk3588-w8a8_g512-opt-1-hybrid-ratio-1.0.rkllm": {
             "family": "llama3",
-            "system_prompt": "You are a helpful assistant specialized in education.",
-            "temperature": 0.5
+            "PROMPT_TEXT_PREFIX": "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\nCutting Knowledge Date: December 2023\nToday Date: 11 Nov 2024\n\nYou are Llama 3.1, an artificial intelligence model trained by Meta. You are a helpful assistant.<|eot_id|><|start_header_id|>user<|end_header_id|>\n\n",
+            "PROMPT_TEXT_POSTFIX": "<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n",
+            "system_prompt": "You are a helpful assistant specializing in providing instruction.",
+            "max_context_len": 1024,
+            "max_new_tokens": 300,
+            "temperature": 0.6
         },
         "custom_qwen2_code": {
             "family": "qwen2",
