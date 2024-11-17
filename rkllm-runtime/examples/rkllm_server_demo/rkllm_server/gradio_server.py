@@ -1,9 +1,8 @@
 import ctypes
 import os
-import sys
+import json
 import threading
 import time
-import json
 import gradio as gr
 
 # Paths
@@ -21,7 +20,25 @@ def load_model_config(model_name):
         return {}
     with open(CONFIG_PATH, "r") as config_file:
         configs = json.load(config_file)
-    return configs.get("models", {}).get(model_name, {})
+
+    # Check if the model exists
+    if "models" in configs and model_name in configs["models"]:
+        model_config = configs["models"][model_name]
+
+        # Inherit family-level defaults
+        family_name = model_config.get("family")
+        if family_name and "families" in configs and family_name in configs["families"]:
+            family_config = configs["families"][family_name]
+            for key, value in family_config.items():
+                if key not in model_config:
+                    model_config[key] = value
+        return model_config
+    return {}
+
+# Interpolate the system prompt into the prefix
+def interpolate_prompt(template_str, system_prompt):
+    """Replace {{system_prompt}} placeholder in the prompt template."""
+    return template_str.replace("{{system_prompt}}", system_prompt)
 
 # Get available models in the /models directory
 def get_available_models():
@@ -80,12 +97,13 @@ def get_user_input(user_message, history, selected_model):
         history = history + [["Please select a model from the dropdown.", None]]
         return "", history
 
+    # Load model config
     config = load_model_config(selected_model)
-    prompt_prefix = config.get("PROMPT_TEXT_PREFIX", "<|im_start|>system ")
-    prompt_postfix = config.get("PROMPT_TEXT_POSTFIX", "<|im_end|><|im_start|>assistant")
-    system_prompt = config.get("system_prompt", "You are a helpful assistant.")
+    prompt_prefix = interpolate_prompt(config.get("PROMPT_TEXT_PREFIX", ""), config.get("system_prompt", ""))
+    prompt_postfix = config.get("PROMPT_TEXT_POSTFIX", "")
     
-    prompt = f"{prompt_prefix}{system_prompt}{prompt_postfix} {user_message} {prompt_postfix}"
+    # Construct the full prompt
+    prompt = f"{prompt_prefix}{user_message}{prompt_postfix}"
     history = history + [[f"Model: {selected_model}\nUser: {user_message}", None]]
     return prompt, history
 
