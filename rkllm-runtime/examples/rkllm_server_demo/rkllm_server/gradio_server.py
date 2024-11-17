@@ -362,30 +362,109 @@ if __name__ == "__main__":
             model_thread.join(timeout=0.005)
             model_thread_finished = not model_thread.is_alive()
 
-    # Create a Gradio interface
-    with gr.Blocks(title="Chat with RKLLM") as chatRKLLM:
-        gr.Markdown("<div align='center'><font size='70'> Chat with RKLLM </font></div>")
-        gr.Markdown("### Enter your question in the inputTextBox and press the Enter key to chat with the RKLLM model.")
-        # Create a Chatbot component to display conversation history
-        rkllmServer = gr.Chatbot(height=600)
-        # Create a Textbox component for user message input
-        msg = gr.Textbox(placeholder="Please input your question here...", label="inputTextBox")
-        # Create a Button component to clear the chat history.
-        clear = gr.Button("Clear")
+import os
+import threading
+import time
+import gradio as gr
 
-        # Submit the user's input message to the get_user_input function and immediately update the chat history.
-        # Then call the get_RKLLM_output function to further update the chat history.
-        # The queue=False parameter ensures that these updates are not queued, but executed immediately.
-        msg.submit(get_user_input, [msg, rkllmServer], [msg, rkllmServer], queue=False).then(get_RKLLM_output, rkllmServer, rkllmServer)
-        # When the clear button is clicked, perform a no-operation (lambda: None) and immediately clear the chat history.
-        clear.click(lambda: None, None, rkllmServer, queue=False)
+# Define the path for model storage
+MODEL_PATH = "/models"
+
+def get_available_models():
+    """Scan the /models directory for available models."""
+    if not os.path.exists(MODEL_PATH) or not os.path.isdir(MODEL_PATH):
+        return ["No models available"]
+    models = [f for f in os.listdir(MODEL_PATH) if os.path.isdir(os.path.join(MODEL_PATH, f))]
+    return models if models else ["No models available"]
+
+# Record the user's input prompt
+def get_user_input(user_message, history, selected_model):
+    if not selected_model or selected_model == "No models available":
+        # If no model is selected, prompt the user to choose a model
+        history = history + [["Please select a model from the dropdown.", None]]
+        return "", history
+    
+    # Add the user's input and selected model to the history
+    history = history + [[f"Model: {selected_model}\nUser: {user_message}", None]]
+    return "", history
+
+# Retrieve the output from the RKLLM model and print it in a streaming manner
+def get_RKLLM_output(history):
+    # Link global variables to retrieve the output information from the callback function
+    global global_text, global_state
+    global_text = []
+    global_state = -1
+
+    # Create a thread for model inference
+    model_thread = threading.Thread(target=rkllm_model.run, args=(history[-1][0],))
+    model_thread.start()
+
+    # history[-1][1] represents the current dialogue
+    history[-1][1] = ""
+    
+    # Wait for the model to finish running and periodically check the inference thread of the model
+    model_thread_finished = False
+    while not model_thread_finished:
+        while len(global_text) > 0:
+            history[-1][1] += global_text.pop(0)
+            time.sleep(0.005)
+            # Gradio automatically pushes the result returned by the yield statement when calling the then method
+            yield history
+
+        model_thread.join(timeout=0.005)
+        model_thread_finished = not model_thread.is_alive()
+
+# Create a Gradio interface
+with gr.Blocks(title="Chat with RKLLM") as chatRKLLM:
+    gr.Markdown("<div align='center'><font size='70'> Chat with RKLLM </font></div>")
+    gr.Markdown("### Enter your question in the inputTextBox and press the Enter key to chat with the RKLLM model.")
+
+    # Add a dropdown to select the model
+    available_models = get_available_models()
+    model_dropdown = gr.Dropdown(
+        choices=available_models,
+        label="Select Model",
+        value=available_models[0] if available_models else "No models available"
+    )
+
+    # Add a spinner for loading feedback
+    spinner = gr.Label(value="Running model inference...", visible=False)
+
+    # Create a Chatbot component to display conversation history
+    rkllmServer = gr.Chatbot(height=600)
+    # Create a Textbox component for user message input
+    msg = gr.Textbox(placeholder="Please input your question here...", label="inputTextBox")
+    # Create a Button component to clear the chat history
+    clear = gr.Button("Clear")
+
+    # Submit the user's input message to the get_user_input function and immediately update the chat history.
+    # Then call the get_RKLLM_output function to further update the chat history.
+    msg.submit(
+        lambda user_message, history, model: (user_message, history, spinner.update(visible=True)),
+        [msg, rkllmServer, model_dropdown],  # Pass the selected model to get_user_input
+        [msg, rkllmServer, spinner],
+        queue=False
+    ).then(
+        get_user_input, [msg, rkllmServer, model_dropdown], [msg, rkllmServer]
+    ).then(
+        get_RKLLM_output, rkllmServer, rkllmServer
+    ).then(
+        lambda: spinner.update(visible=False), None, spinner
+    )
+
+    # When the clear button is clicked, perform a no-operation (lambda: None) and immediately clear the chat history.
+    clear.click(lambda: None, None, rkllmServer, queue=False)
 
     # Enable the event queue system.
     chatRKLLM.queue()
     # Start the Gradio application.
     chatRKLLM.launch()
 
+# Ensure graceful shutdown of resources
+try:
     print("====================")
     print("RKLLM model inference completed, releasing RKLLM model resources...")
     rkllm_model.release()
     print("====================")
+except Exception as e:
+    print(f"Error releasing RKLLM model resources: {e}")
