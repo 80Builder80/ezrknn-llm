@@ -29,7 +29,7 @@ using json = nlohmann::json;
 LLMHandle llmHandle = nullptr;
 
 // Buffer memory parameters
-const size_t MAX_MEMORY_SIZE = 5; // Keep the last 5 exchanges
+const size_t MAX_MEMORY_SIZE = 10; // Keep the last 5 exchanges
 deque<string> memory_buffer;      // Buffer to store conversation history
 
 // Exit handler
