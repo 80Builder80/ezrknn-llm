@@ -4,23 +4,21 @@
 apt update
 apt install -y python3 pip git curl wget nano sudo apt-utils
 
-# Better than using the default from Rockchip
+# Clone the repository
 git clone https://github.com/80Builder80/ezrknn-llm/
+
+# Install ezrknn-llm
 curl https://raw.githubusercontent.com/80Builder80/ezrknn-llm/master/install.sh | sudo bash
 
-# For running the test.py
+# Install required Python packages
 pip install /ezrknn-llm/rkllm-toolkit/packages/rkllm_toolkit-1.0.1-cp38-cp38-linux_x86_64.whl
 
-# Clone some compatible LLMs
-cd /ezrknn-llm/rkllm-toolkit/examples/huggingface
-git clone https://huggingface.co/c01zaut/Llama-3.1-8B-Instruct-rk3588-1.1.1
-git clone https://huggingface.co/c01zaut/deepseek-coder-7b-instruct-v1.5-rk3588-1.1.1
+# Ensure Python dependencies for Gradio server are installed
+pip install gradio>=4.24.0
 
-# Done here to avoid cloning full repository for the Docker image
-apt install -y git-lfs
+# Ensure required directories
+if [ ! -d /models ]; then
+    mkdir -p /models
+    chmod -R 777 /models
+fi
 
-# Needed
-DEBIAN_FRONTEND=noninteractive apt install -y python3-tk
-
-# cd Qwen-1_8B-Chat
-# git lfs pull
