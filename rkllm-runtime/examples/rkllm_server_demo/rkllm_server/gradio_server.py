@@ -21,7 +21,7 @@ def load_model_config(model_name):
         return {}
     with open(CONFIG_PATH, "r") as config_file:
         configs = json.load(config_file)
-    return configs.get(model_name, {})
+    return configs.get("models", {}).get(model_name, {})
 
 # Get available models in the /models directory
 def get_available_models():
@@ -81,8 +81,11 @@ def get_user_input(user_message, history, selected_model):
         return "", history
 
     config = load_model_config(selected_model)
-    prompt_template = config.get("system_prompt", "<|im_start|>system Default prompt<|im_end|> <|im_start|>user")
-    prompt = f"{prompt_template} {user_message} <|im_end|><|im_start|>assistant"
+    prompt_prefix = config.get("PROMPT_TEXT_PREFIX", "<|im_start|>system ")
+    prompt_postfix = config.get("PROMPT_TEXT_POSTFIX", "<|im_end|><|im_start|>assistant")
+    system_prompt = config.get("system_prompt", "You are a helpful assistant.")
+    
+    prompt = f"{prompt_prefix}{system_prompt}{prompt_postfix} {user_message} {prompt_postfix}"
     history = history + [[f"Model: {selected_model}\nUser: {user_message}", None]]
     return prompt, history
 
@@ -139,4 +142,5 @@ try:
     print("====================")
 except Exception as e:
     print(f"Error releasing RKLLM model resources: {e}")
+
 
