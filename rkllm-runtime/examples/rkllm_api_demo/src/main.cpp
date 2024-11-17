@@ -20,10 +20,7 @@
 #include <csignal>
 #include <vector>
 #include "rkllm.h"
-#include "json.hpp"  // nlohmann/json header
-
-#define PROMPT_TEXT_PREFIX "<|im_start|>system "
-#define PROMPT_TEXT_POSTFIX "<|im_end|><|im_start|>user"
+#include "json.hpp" // nlohmann/json header
 
 using namespace std;
 using json = nlohmann::json;
@@ -127,8 +124,11 @@ int main(int argc, char **argv)
     }
     printf("RKLLM init success!\n");
 
-    // System prompt
-    string system_prompt = PROMPT_TEXT_PREFIX + model_config["system_prompt"].get<string>() + PROMPT_TEXT_POSTFIX;
+    // Extract dynamic prompt settings
+    string prompt_prefix = model_config["PROMPT_TEXT_PREFIX"];
+    string system_prompt = model_config["system_prompt"];
+    string prompt_postfix = model_config["PROMPT_TEXT_POSTFIX"];
+    string full_prompt = prompt_prefix + system_prompt + prompt_postfix;
 
     // Display welcome message
     vector<string> pre_input;
@@ -157,7 +157,7 @@ int main(int argc, char **argv)
             break;
         }
 
-        string query = system_prompt + input_str + PROMPT_TEXT_POSTFIX;
+        string query = full_prompt + input_str + prompt_postfix;
 
         printf("LLM: ");
         rkllm_run(llmHandle, query.c_str(), nullptr);
@@ -167,4 +167,5 @@ int main(int argc, char **argv)
 
     return 0;
 }
+
 
