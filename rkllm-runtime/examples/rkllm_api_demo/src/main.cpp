@@ -1,19 +1,3 @@
-// Copyright (c) 2024 by Rockchip Electronics Co., Ltd. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-// Modified by Pelochus
-
 #include <string>
 #include <iostream>
 #include <fstream>
@@ -26,10 +10,9 @@
 using namespace std;
 using json = nlohmann::json;
 
+// Constants
 LLMHandle llmHandle = nullptr;
-
-// Buffer memory parameters
-const size_t MAX_MEMORY_SIZE = 10; // Keep the last 5 exchanges
+const size_t MAX_MEMORY_SIZE = 10; // Max memory exchanges in buffer
 deque<string> memory_buffer;      // Buffer to store conversation history
 
 // Exit handler
@@ -54,7 +37,7 @@ void callback(RKLLMResult *result, void *userdata, LLMCallState state)
     }
     else if (state == LLM_RUN_ERROR)
     {
-        printf("\\LLM run error\n");
+        printf("LLM run error\n");
     }
     else
     {
@@ -76,6 +59,7 @@ bool load_model_config(const string &config_path, const string &model_name, json
     config_file >> config;
     config_file.close();
 
+    // Extract family-level and model-specific settings
     if (config.contains("models") && config["models"].contains(model_name))
     {
         model_config = config["models"][model_name];
@@ -101,9 +85,9 @@ bool load_model_config(const string &config_path, const string &model_name, json
     }
 }
 
+// Replace placeholder {{system_prompt}} in the prefix
 string interpolate_prompt(const string &prefix, const string &system_prompt)
 {
-    // Replace placeholder {{system_prompt}} in the prefix
     size_t pos = prefix.find("{{system_prompt}}");
     if (pos != string::npos)
     {
@@ -112,7 +96,7 @@ string interpolate_prompt(const string &prefix, const string &system_prompt)
     return prefix;
 }
 
-// Function to construct prompt with memory
+// Construct prompt with memory
 string construct_prompt_with_memory(const string &prefix, const deque<string> &memory, const string &input, const string &postfix)
 {
     string full_prompt = prefix;
@@ -172,15 +156,16 @@ int main(int argc, char **argv)
 
     // Extract dynamic prompt settings
     string prompt_prefix = model_config.value("PROMPT_TEXT_PREFIX", "");
-    string system_prompt = model_config.value("system_prompt", "");
+    string system_prompt = model_config.value("system_prompt", "You are a helpful assistant.");
     string prompt_postfix = model_config.value("PROMPT_TEXT_POSTFIX", "");
     string interpolated_prefix = interpolate_prompt(prompt_prefix, system_prompt);
 
     // Display welcome message
-    vector<string> pre_input;
-    pre_input.push_back("Welcome to ezrkllm! This is an adaptation of Rockchip's rknn-llm repo.");
-    pre_input.push_back("To exit the model, enter either 'exit' or 'quit'.");
-    pre_input.push_back("More information here: https://github.com/Pelochus/ezrknpu");
+    vector<string> pre_input = {
+        "Welcome to ezrkllm! This is an adaptation of Rockchip's rknn-llm repo.",
+        "To exit the model, enter either 'exit' or 'quit'.",
+        "More information here: https://github.com/Pelochus/ezrknpu"
+    };
 
     cout << "\n*************************** Pelochus' ezrkllm runtime *************************\n" << endl;
     for (const auto &line : pre_input)
@@ -217,10 +202,6 @@ int main(int argc, char **argv)
     }
 
     rkllm_destroy(llmHandle);
-
-    return 0;
-}
-
 
     return 0;
 }
