@@ -74,6 +74,19 @@ bool load_model_config(const string &config_path, const string &model_name, json
     if (config.contains("models") && config["models"].contains(model_name))
     {
         model_config = config["models"][model_name];
+        string family = model_config.value("family", "");
+
+        if (!family.empty() && config.contains("families") && config["families"].contains(family))
+        {
+            // Merge family-level defaults into model config
+            for (auto &el : config["families"][family].items())
+            {
+                if (!model_config.contains(el.key()))
+                {
+                    model_config[el.key()] = el.value();
+                }
+            }
+        }
         return true;
     }
     else
@@ -81,6 +94,17 @@ bool load_model_config(const string &config_path, const string &model_name, json
         cerr << "Error: Model configuration for " << model_name << " not found in the configuration file." << endl;
         return false;
     }
+}
+
+string interpolate_prompt(const string &prefix, const string &system_prompt)
+{
+    // Replace placeholder {{system_prompt}} in the prefix
+    size_t pos = prefix.find("{{system_prompt}}");
+    if (pos != string::npos)
+    {
+        return prefix.substr(0, pos) + system_prompt + prefix.substr(pos + 16); // 16 is the length of "{{system_prompt}}"
+    }
+    return prefix;
 }
 
 int main(int argc, char **argv)
@@ -109,8 +133,8 @@ int main(int argc, char **argv)
     RKLLMParam param = rkllm_createDefaultParam();
     param.model_path = rkllm_model.c_str();
     param.num_npu_core = 2;
-    param.max_new_tokens = model_config["max_new_tokens"];
-    param.max_context_len = model_config["max_context_len"];
+    param.max_new_tokens = model_config.value("max_new_tokens", 256);
+    param.max_context_len = model_config.value("max_context_len", 512);
     param.top_k = 1;
     param.logprobs = false;
     param.top_logprobs = 5;
@@ -125,10 +149,10 @@ int main(int argc, char **argv)
     printf("RKLLM init success!\n");
 
     // Extract dynamic prompt settings
-    string prompt_prefix = model_config["PROMPT_TEXT_PREFIX"];
-    string system_prompt = model_config["system_prompt"];
-    string prompt_postfix = model_config["PROMPT_TEXT_POSTFIX"];
-    string full_prompt = prompt_prefix + system_prompt + prompt_postfix;
+    string prompt_prefix = model_config.value("PROMPT_TEXT_PREFIX", "");
+    string system_prompt = model_config.value("system_prompt", "");
+    string prompt_postfix = model_config.value("PROMPT_TEXT_POSTFIX", "");
+    string interpolated_prefix = interpolate_prompt(prompt_prefix, system_prompt);
 
     // Display welcome message
     vector<string> pre_input;
@@ -157,7 +181,7 @@ int main(int argc, char **argv)
             break;
         }
 
-        string query = full_prompt + input_str + prompt_postfix;
+        string query = interpolated_prefix + input_str + prompt_postfix;
 
         printf("LLM: ");
         rkllm_run(llmHandle, query.c_str(), nullptr);
