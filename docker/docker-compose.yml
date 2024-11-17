@@ -1,0 +1,13 @@
+services:
+  ezrknn_llm:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ezrknn_llm
+    volumes:
+      - /home/rpi5/DockerCluster/stacks/ezrknn_llm/models:/models
+    ports:
+      - "7860:8080"  # Mapping Gradio port
+    environment:
+      - PYTHONUNBUFFERED=1
+    tty: true
